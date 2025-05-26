@@ -6,6 +6,8 @@
 
 Nani is a sleek and efficient terminal-based chat application designed to provide an interactive interface for Google's Gemini AI, featuring real-time markdown rendering and structured AI responses.
 
+![screenshot](https://raw.githubusercontent.com/asaidimu/nani/main/screenshot.png?raw=true)
+
 ---
 
 ## ⚡ Quick Links
@@ -137,80 +139,9 @@ Nani is designed to leverage the structured XML output of the Gemini AI model. W
 
 This separation allows you to quickly grasp the essence of the response (summary), understand the AI's process (think), and review the complete solution (content) simultaneously.
 
-### Example Interaction
-
-```bash
-# Start Nani
-$ ./nani
-
-# Nani UI appears
-# Type your message in the input area:
-# You: "Can you define an interface for a User object in TypeScript? It should have id, name, and email."
-
-# Press Enter. Spinner appears.
-# After response:
-
-# ----------------------------
-# | Chat History           | Preview                    |
-# | --------------------   | -------------------------- |
-# | You: Can you define    | Welcome to AI Chat         |
-# | an interface for a     | Terminal!                  |
-# | User object in         |                            |
-# | TypeScript? It should  | Features:                  |
-# | have id, name, and     | • Real-time markdown       |
-# | email.                 |   preview                  |
-# |                        | • Responsive layout        |
-# | AI: Summary: I have    | • Beautiful terminal UI    |
-# | defined a TypeScript   | • AI conversation history  |
-# | interface named        |                            |
-# | 'User' with id         | Start typing to see your   |
-# | (string), name         | message preview here.      |
-# | (string), and email    |                            |
-# | (string) properties,   | Preview Panel              |
-# | along with a brief     | ```typescript              |
-# | thought process.       | interface User {           |
-# | Thought Process:       |   id: string;              |
-# | The request is for a   |   name: string;            |
-# | TypeScript interface   |   email: string;           |
-# | for a User object      | }                          |
-# | with specific fields.  | ```                        |
-# | I will create an       |                            |
-# | interface and ensure   |                            |
-# | appropriate types.     |                            |
-# | --------------------   | -------------------------- |
-# | Input                  |                            |
-# | --------------------   |                            |
-# | ┃                      |                            |
-# |                        |                            |
-# | Enter: Send • Tab:     |                            |
-# | Toggle Preview • Q/    |                            |
-# | Ctrl+C: Quit           |                            |
-# ----------------------------
-```
-
----
-
 ## 🏗️ Project Architecture
 
 Nani is a Go application structured for clarity and modularity, primarily leveraging the `charmbracelet` ecosystem for its interactive terminal interface and Google's `genai` SDK for AI integration.
-
-```
-nani/
-├── main.go               # Application entry point, initializes UI and AI client.
-├── go.mod                # Defines module paths and direct dependencies.
-├── go.sum                # Checksums for module dependencies.
-├── Makefile              # Standard build, test, and clean commands.
-└── pkg/                  # Contains core application logic packages.
-    ├── ai/               # Handles all AI-related logic.
-    │   ├── gemini.go     # Implements the AIClient interface using Google Gemini API.
-    │   ├── types.go      # Defines AI message structure, AIClient interface, and structured AI Response.
-    │   └── utils.go      # Utility functions for parsing structured AI responses (XML).
-    └── ui/               # Manages the Terminal User Interface (TUI).
-        ├── model.go      # Defines the Bubble Tea model (application state) and layout calculations.
-        ├── styles.go     # Contains Lipgloss styles for all UI elements.
-        ├── update.go     # Implements Bubble Tea's Update method, handling user input and AI responses.
-        └── view.go       # Implements Bubble Tea's View method, rendering the TUI.
-```
 
 ### Core Components
 
