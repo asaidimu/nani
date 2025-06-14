@@ -1,3 +1,16 @@
+# [2.0.0](https://github.com/asaidimu/nani/compare/v1.0.0...v2.0.0) (2025-06-14)
+
+
+* feat(ai)!: implement persistent sessions and JSON response format ([79f3414](https://github.com/asaidimu/nani/commit/79f3414a5d30ee9a53045cc7cf2f38df07881cc3))
+
+
+### BREAKING CHANGES
+
+* The internal AI model response format has changed from XML to JSON.
+Any external tools or scripts directly consuming the AI's raw output will need
+to be updated to parse JSON instead of XML.
+The pkg/ai.AIClient interface has also been updated; consumers should review changes.
+
 # 1.0.0 (2025-05-26)
 
 
