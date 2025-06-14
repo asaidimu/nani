@@ -3,10 +3,13 @@
 all: build
 
 build:
-	go build -v ./...
+	@mkdir -p ./dist
+	go build -o ./dist/main ./main.go
 
 test:
 	go test -v ./...
 
 clean:
-	rm -f nani
+	@rm -f ./dist/main
+	@rmdir -p ./dist 2>/dev/null || true
+

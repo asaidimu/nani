@@ -1,13 +1,12 @@
-// main.go
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/asaidimu/nani/pkg/ai"
-	"github.com/asaidimu/nani/pkg/ui" // Import the new ui package
+	"github.com/asaidimu/nani/pkg/ui"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -17,20 +16,27 @@ func main() {
 		fmt.Println("Error: GEMINI_API_KEY environment variable not set")
 		os.Exit(1)
 	}
-	aiClient, err := ai.NewGeminiAIClient(apiKey)
+
+	project :=  filepath.Join(".")
+	workspace, err := ai.NewWorkspace(project)
 	if err != nil {
-		fmt.Printf("Error initializing Gemini client: %v\n", err)
+		fmt.Printf("Error creating workspace: %v\n", err)
 		os.Exit(1)
 	}
-	ctx := context.Background();
-	_, err = aiClient.StartSession(ctx)
+
+	err = workspace.Init("nani", "saidimu", "https://github.com/asaidimu/nani.git")
+	if err != nil {
+		fmt.Printf("Error initializing workspace: %v\n", err)
+		os.Exit(1)
+	}
+
+	aiClient, err := ai.NewGeminiAIClient(apiKey, workspace)
 	if err != nil {
 		fmt.Printf("Error initializing Gemini client: %v\n", err)
 		os.Exit(1)
 	}
 
-	m := ui.New(aiClient) // Use the New function from the ui package
-
+	m := ui.New(aiClient)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)

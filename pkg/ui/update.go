@@ -10,59 +10,59 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+const (
+	content = iota
+	history
+)
+
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
 		taCmd      tea.Cmd
 		vpCmd      tea.Cmd
 		spCmd      tea.Cmd
 		previewVpCmd tea.Cmd
+		cmds []tea.Cmd
 	)
 
-	// Update components
 	m.textarea, taCmd = m.textarea.Update(msg)
-	m.viewport, vpCmd = m.viewport.Update(msg)
+	m.history, vpCmd = m.history.Update(msg)
 	m.spinner, spCmd = m.spinner.Update(msg)
-	m.previewVP, previewVpCmd = m.previewVP.Update(msg)
+	m.content, previewVpCmd = m.content.Update(msg)
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.layout = m.calculateLayout(msg.Width-4, msg.Height-2)
 		m.ready = true
 
-		// Update component dimensions for their *content areas*
-		// History viewport content area
-		m.viewport.Width = m.layout.LeftWidth - HistoryStyle.GetHorizontalFrameSize()
-		m.viewport.Height = m.layout.HistoryHeight - HistoryStyle.GetVerticalFrameSize()
+		m.history.Width = m.layout.LeftWidth - HistoryStyle.GetHorizontalFrameSize()
+		m.history.Height = m.layout.HistoryHeight - HistoryStyle.GetVerticalFrameSize()
 
-		// Calculate available height for textarea within the input section
-		// Input section contains: title (1 line) + textarea + help (1 line) + newlines (4 lines) + borders/padding
-		availableTextareaHeight := m.layout.InputHeight - PromptStyle.GetVerticalFrameSize() - 6 // 6 = title + help + newlines
+		availableTextareaHeight := m.layout.InputHeight - PromptStyle.GetVerticalFrameSize() - 6
 		if availableTextareaHeight < 1 {
-			availableTextareaHeight = 1 // Minimum 1 line for textarea
+			availableTextareaHeight = 1
 		}
 		if availableTextareaHeight > 10 {
-			availableTextareaHeight = 10 // Maximum to keep reasonable
+			availableTextareaHeight = 10
 		}
 
-		// Update textarea dimensions
 		m.textarea.SetWidth(m.layout.LeftWidth - PromptStyle.GetHorizontalFrameSize())
 		m.textarea.SetHeight(availableTextareaHeight)
 
-		// Preview viewport content area
-		m.previewVP.Width = m.layout.RightWidth - PreviewStyle.GetHorizontalFrameSize()
-		m.previewVP.Height = m.layout.TotalHeight - PreviewStyle.GetVerticalFrameSize()
+		m.content.Width = m.layout.RightWidth - PreviewStyle.GetHorizontalFrameSize()
+		m.content.Height = m.layout.TotalHeight - PreviewStyle.GetVerticalFrameSize()
 
-		// Re-render content with new sizes
 		m.updateHistoryContent()
 		m.updatePreviewContent()
 
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "q":
+		case "j", "k":
+			return m, nil
+		case "ctrl+c":
 			return m, tea.Quit
 		case "tab":
-			m.previewMode = !m.previewMode
-			m.updatePreviewContent()
+			m.focused = (m.focused + 1) % 2
+			return m, nil
 		case "enter":
 			if !m.loading && m.textarea.Value() != "" {
 				userMsg := strings.TrimSpace(m.textarea.Value())
@@ -83,6 +83,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				)
 			}
 		}
+	case tea.MouseMsg:
+		var cmd tea.Cmd
+		if m.focused == content {
+			m.content, cmd = m.content.Update(msg)
+		} else {
+			m.history, cmd = m.history.Update(msg)
+		}
+		cmds = append(cmds, cmd)
 
 	case AIResponseMsg:
 		m.loading = false
@@ -113,6 +121,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	cmds = append(cmds, taCmd, vpCmd, spCmd, previewVpCmd)
 	return m, tea.Batch(taCmd, vpCmd, spCmd, previewVpCmd)
 }
 
@@ -142,22 +151,21 @@ func (m *Model) updateHistoryContent() {
 		content.WriteString(styledLine)
 	}
 
-	// Always add the spinner area to prevent UI shifts
 	if len(m.messages) > 0 || content.Len() > 0 {
-		content.WriteString("\n") // Add a newline before the spinner area
+		content.WriteString("\n")
 	}
 
-	// Always reserve space for the spinner line, show spinner when loading or empty space when not
 	var spinnerLine string
 	if m.loading {
 		spinnerLine = AIMsgStyle.Render("AI: " + m.spinner.View() + " Thinking...")
 	} else {
-		spinnerLine = AIMsgStyle.Render("AI: ") // Just the prefix to maintain consistent spacing
+		spinnerLine = AIMsgStyle.Render("AI: ")
 	}
+
 	content.WriteString(spinnerLine)
 
-	m.viewport.SetContent(content.String())
-	m.viewport.GotoBottom()
+	m.history.SetContent(content.String())
+	m.history.GotoBottom()
 }
 
 func (m *Model) sendToAI(message string) tea.Cmd {
@@ -165,7 +173,7 @@ func (m *Model) sendToAI(message string) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		response, err := m.aiClient.SendMessage(ctx, message, m.messages)
+		response, err := m.aiClient.SendMessage(ctx, message, m.messages, true)
 		return AIResponseMsg{Content: response.Content, Think: response.Think, Summary: response.Summary, Err: err}
 	}
 }

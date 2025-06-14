@@ -11,7 +11,7 @@ func (m *Model) View() string {
 	}
 
 	// Get the history content (which now includes the spinner area)
-	historyText := m.viewport.View()
+	historyText := m.history.View()
 
 	// History section:
 	historyContent := TitleStyle.Render("Chat History") + "\n\n" + historyText
@@ -30,7 +30,7 @@ func (m *Model) View() string {
 		Render(inputContent)
 
 	// Preview section:
-	previewContent := TitleStyle.Render("Preview") + "\n\n" + m.previewVP.View()
+	previewContent := TitleStyle.Render("Preview") + "\n\n" + m.content.View()
 	previewSection := PreviewStyle.
 		Width(m.layout.RightWidth).
 		Height(m.layout.TotalHeight).
@@ -84,6 +84,6 @@ func (m *Model) updatePreviewContent() {
 			lipgloss.NewStyle().Width(contentWidth).Render(welcomeText)
 	}
 
-	m.previewVP.SetContent(rawPreviewContent)
-	m.previewVP.GotoTop()
+	m.content.SetContent(rawPreviewContent)
+	m.content.GotoTop()
 }

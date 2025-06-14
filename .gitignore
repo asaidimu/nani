@@ -23,3 +23,6 @@ go.work
 *.log
 .readme.md
 .commit-message.md
+.AIWorkspace/session.json
+.AIWorkspace/sessions/*.json
+dist

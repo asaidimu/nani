@@ -1,6 +1,11 @@
 package ui
 
 import (
+	"context"
+	"fmt"
+	"os"
+	"time"
+
 	"github.com/asaidimu/nani/pkg/ai"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
@@ -9,30 +14,28 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Layout holds calculated dimensions
 type Layout struct {
 	LeftWidth     int
 	RightWidth    int
-	HistoryHeight int // Total height for the history lipgloss.Style box
-	InputHeight   int // Total height for the prompt lipgloss.Style box
-	TotalHeight   int // Total height of the terminal window
+	HistoryHeight int
+	InputHeight   int
+	TotalHeight   int
 }
 
-// Model holds the application state
 type Model struct {
 	messages    []ai.Message
 	textarea    textarea.Model
-	viewport    viewport.Model   // For chat history content
-	previewVP   viewport.Model   // For preview panel content
+	history    viewport.Model
+	content   viewport.Model
 	spinner     spinner.Model
 	loading     bool
 	ready       bool
 	aiClient    ai.AIClient
 	layout      Layout
 	previewMode bool
+	focused     int
 }
 
-// Messages for Bubble Tea
 type AIResponseMsg struct {
 	Content string
 	Think string
@@ -48,27 +51,46 @@ func New(aiClient ai.AIClient) *Model {
 	ta.Focus()
 	ta.Prompt = "┃ "
 	ta.CharLimit = 2000000
-	ta.SetHeight(3) // Initial height for textarea content
+	ta.SetHeight(3)
 	ta.ShowLineNumbers = false
 	ta.FocusedStyle.CursorLine = lipgloss.NewStyle()
 
-	vp := viewport.New(50, 20)      // For history (initial arbitrary size)
-	previewVp := viewport.New(50, 20) // For preview (initial arbitrary size)
+	vp := viewport.New(50, 20)
+	vp.KeyMap.Down.SetKeys("down", "pgdown")
+	vp.KeyMap.Up.SetKeys("up", "pgup")
+
+	previewVp := viewport.New(50, 20)
+	previewVp.KeyMap.Up.SetKeys("up", "pgup")
+	previewVp.KeyMap.Down.SetKeys("down", "pgdown")
 
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
-	return &Model{
+	ctx := context.Background();
+	response, err := aiClient.StartSession(ctx)
+
+	if err != nil {
+		fmt.Printf("Error initializing Gemini client: %v\n", err)
+		os.Exit(1)
+	}
+
+	result := &Model{
 		messages:    []ai.Message{},
 		textarea:    ta,
-		viewport:    vp,
-		previewVP:   previewVp,
+		history:    vp,
+		content:   previewVp,
 		spinner:     s,
 		aiClient:    aiClient,
 		ready:       false,
 		previewMode: false,
 	}
+	result.messages = append(result.messages, ai.Message{
+		Role: "ai-content",
+		Content: response.Content,
+		Time: time.Now(),
+	})
+	return result
 }
 
 func (m *Model) Init() tea.Cmd {
@@ -76,9 +98,8 @@ func (m *Model) Init() tea.Cmd {
 }
 
 func (m *Model) calculateLayout(width, height int) Layout {
-	// Minimum dimensions for overall window
-	minOverallWidth := 80  // Reasonable minimum for two columns
-	minOverallHeight := 15 // Enough for minimal history, input, and preview
+	minOverallWidth := 80
+	minOverallHeight := 15
 
 	if width < minOverallWidth {
 		width = minOverallWidth
@@ -87,31 +108,25 @@ func (m *Model) calculateLayout(width, height int) Layout {
 		height = minOverallHeight
 	}
 
-	// Calculate column widths
-	leftWidth := int(float64(width) * 0.4) // Left column takes 40%
-	// Ensure enough space for borders + minimal content
+	leftWidth := int(float64(width) * 0.4)
 	minColumnContentWidth := 20
 	if leftWidth < minColumnContentWidth+HistoryStyle.GetHorizontalFrameSize() {
 		leftWidth = minColumnContentWidth + HistoryStyle.GetHorizontalFrameSize()
 	}
-	rightWidth := width - leftWidth // Remaining width for right column
+	rightWidth := width - leftWidth
 
-	// Adjust rightWidth if it falls below minimum after subtracting leftWidth
 	if rightWidth < minColumnContentWidth+PreviewStyle.GetHorizontalFrameSize() {
 		rightWidth = minColumnContentWidth + PreviewStyle.GetHorizontalFrameSize()
-		leftWidth = width - rightWidth // Re-adjust left to fit if possible
-		// If left also shrinks too much, we prioritize right and left might be slightly undersized
+		leftWidth = width - rightWidth
 		if leftWidth < minColumnContentWidth+HistoryStyle.GetHorizontalFrameSize() {
 			leftWidth = minColumnContentWidth + HistoryStyle.GetHorizontalFrameSize()
 		}
 	}
 
-	// Calculate heights proportionally based on terminal size
-	minInputHeight := 8  // Minimum lines needed for input section (title + textarea + help + borders)
-	maxInputHeight := 15 // Maximum lines to prevent input from dominating
-	minHistoryHeight := 6 // Minimum lines for history section
+	minInputHeight := 8
+	maxInputHeight := 15
+	minHistoryHeight := 6
 
-	// Allocate approximately 25% of height to input, with constraints
 	proposedInputHeight := int(float64(height) * 0.25)
 
 	inputHeight := proposedInputHeight
@@ -122,17 +137,13 @@ func (m *Model) calculateLayout(width, height int) Layout {
 		inputHeight = maxInputHeight
 	}
 
-	// History gets the remaining space
 	historyHeight := height - inputHeight
 
-	// Ensure minimum history height and adjust if necessary
 	if historyHeight < minHistoryHeight {
 		historyHeight = minHistoryHeight
-		inputHeight = height - historyHeight // Adjust input to fit
-		// If input becomes too small, we prioritize functionality
+		inputHeight = height - historyHeight
 		if inputHeight < minInputHeight {
 			inputHeight = minInputHeight
-			// In very small terminals, sections may overlap or be unusable
 		}
 	}
 
